@@ -1,6 +1,6 @@
 # Automotive Requirement Intelligence Platform — Upload MVP
 
-First slice: upload PDF or DOCX files. Files are stored in Azure Blob Storage when configured, otherwise in local disk for development. This slice does not yet extract requirements, use RAG, or call AI agents.
+Upload PDF or DOCX files, then extract document text and identify preliminary requirement candidates for engineer review. Files are stored in Azure Blob Storage when configured, otherwise on local disk for development. This MVP does not use RAG or call AI agents.
 
 ## Run locally
 Requires Python 3.11+ and Node.js 20+.
@@ -36,3 +36,6 @@ For production, prefer managed identity / Microsoft Entra ID, add authentication
 - `GET /api/health`
 - `GET /api/documents`
 - `POST /api/documents` (multipart `file`; PDF/DOCX, max 25 MB)
+- `POST /api/documents/{document_id}/extract` (extracts locally stored documents; Azure Blob extraction is not yet supported)
+
+Extraction returns document text and rule-based candidate requirements. Scanned PDFs without selectable text are not supported. Candidates are preliminary suggestions and require engineer review.

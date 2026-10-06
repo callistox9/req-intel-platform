@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from app.extraction import analyze_document
 
 ROOT = Path(__file__).resolve().parents[1]
 UPLOADS = ROOT / "uploads"
@@ -100,3 +101,59 @@ async def upload_document(file: UploadFile = File(...)):
     }
     documents.append(record)
     return record
+
+
+@app.post("/api/documents/{document_id}/extract")
+def extract_uploaded_document(document_id: str):
+    record = next(
+        (document for document in documents if document["id"] == document_id),
+        None,
+    )
+
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found in this running session.",
+        )
+
+    storage = record["storage"]
+
+    try:
+        if storage.startswith("local:"):
+            stored_name = storage.removeprefix("local:")
+            file_path = UPLOADS / stored_name
+
+            if not file_path.is_file():
+                raise HTTPException(
+                    status_code=404,
+                    detail="Stored document file not found.",
+                )
+
+            data = file_path.read_bytes()
+
+        else:
+            raise HTTPException(
+                status_code=501,
+                detail="This endpoint currently handles local storage only.",
+            )
+
+        result = analyze_document(record["filename"], data)
+
+        return {
+            "document_id": document_id,
+            **result,
+            "notice": (
+                "Candidates are preliminary suggestions. "
+                "An engineer must review them."
+            ),
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Document extraction failed: {exc}",
+        ) from exc
