@@ -42,6 +42,37 @@ def extract_docx(data: bytes) -> list[dict[str, Any]]:
     return [{"page": None, "text": "\n".join(lines)}]
 
 
+def _merge_continuation_lines(lines: list[str]) -> list[str]:
+    """Merge wrapped requirement lines before classifying them."""
+    merged: list[str] = []
+
+    for raw_line in lines:
+        line = " ".join(raw_line.split()).strip(" •\t-")
+        if not line:
+            continue
+
+        if not merged:
+            merged.append(line)
+            continue
+
+        previous = merged[-1]
+        trimmed = re.sub(r"^[\s\[\(\{\-•\"'“”‘’]+", "", line)
+        starts_requirement = bool(
+            re.match(r"^(shall|must|should|required|may)\b", trimmed, re.IGNORECASE)
+        )
+        starts_lowercase = bool(re.match(r"^[a-z]", trimmed))
+
+        if (
+            not re.search(r"[.!?]$", previous)
+            and (starts_requirement or starts_lowercase)
+        ):
+            merged[-1] = f"{previous} {line}".strip()
+        else:
+            merged.append(line)
+
+    return merged
+
+
 def find_candidate_requirements(
     pages: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -57,9 +88,8 @@ def find_candidate_requirements(
     candidates = []
 
     for page in pages:
-        for line_number, raw_line in enumerate(page["text"].splitlines(), start=1):
-            line = " ".join(raw_line.split()).strip(" •\t-")
-
+        logical_lines = _merge_continuation_lines(page["text"].splitlines())
+        for line_number, line in enumerate(logical_lines, start=1):
             if len(line) < 18 or not pattern.search(line):
                 continue
 
