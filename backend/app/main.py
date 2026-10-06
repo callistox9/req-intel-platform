@@ -11,17 +11,28 @@ UPLOADS.mkdir(parents=True, exist_ok=True)
 MAX_BYTES = 25 * 1024 * 1024
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 app = FastAPI(title="Requirement Intelligence Platform API", version="0.1.0")
-app.add_middleware(CORSMiddleware, allow_origins=os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(","), allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(","),
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 documents: list[dict[str, Any]] = []
 
+
 def clean_name(value: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._ -]", "_", Path(value).name).strip(" .")[:180] or "document"
+    return (
+        re.sub(r"[^A-Za-z0-9._ -]", "_", Path(value).name).strip(" .")[:180]
+        or "document"
+    )
+
 
 async def store(name: str, data: bytes, mime: str) -> str:
     connection = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     container_name = os.getenv("AZURE_STORAGE_CONTAINER", "requirement-source-files")
     if connection:
         from azure.storage.blob import BlobServiceClient, ContentSettings
+
         try:
             service = BlobServiceClient.from_connection_string(connection)
             container = service.get_container_client(container_name)
@@ -29,20 +40,34 @@ async def store(name: str, data: bytes, mime: str) -> str:
                 container.create_container()
             except Exception:
                 pass
-            container.get_blob_client(name).upload_blob(data, overwrite=False, content_settings=ContentSettings(content_type=mime))
+            container.get_blob_client(name).upload_blob(
+                data,
+                overwrite=False,
+                content_settings=ContentSettings(content_type=mime),
+            )
             return f"azure-blob:{container_name}/{name}"
         except Exception as exc:
-            raise HTTPException(502, f"Azure Blob Storage upload failed: {exc}") from exc
+            raise HTTPException(
+                502, f"Azure Blob Storage upload failed: {exc}"
+            ) from exc
     (UPLOADS / name).write_bytes(data)
     return f"local:{name}"
 
+
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "storage_mode": "azure-blob" if os.getenv("AZURE_STORAGE_CONNECTION_STRING") else "local"}
+    return {
+        "status": "ok",
+        "storage_mode": (
+            "azure-blob" if os.getenv("AZURE_STORAGE_CONNECTION_STRING") else "local"
+        ),
+    }
+
 
 @app.get("/api/documents")
 def list_documents():
     return sorted(documents, key=lambda d: d["uploaded_at"], reverse=True)
+
 
 @app.post("/api/documents", status_code=201)
 async def upload_document(file: UploadFile = File(...)):
@@ -64,6 +89,14 @@ async def upload_document(file: UploadFile = File(...)):
         raise HTTPException(415, "The file does not appear to be a valid DOCX.")
     doc_id = str(uuid.uuid4())
     ref = await store(doc_id + ext, data, mime)
-    record = {"id": doc_id, "filename": filename, "content_type": mime, "size_bytes": len(data), "uploaded_at": datetime.now(timezone.utc).isoformat(), "storage": ref, "status": "uploaded"}
+    record = {
+        "id": doc_id,
+        "filename": filename,
+        "content_type": mime,
+        "size_bytes": len(data),
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "storage": ref,
+        "status": "uploaded",
+    }
     documents.append(record)
     return record

@@ -211,6 +211,13 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Node.js
+frontend/node_modules/
+*.tsbuildinfo
+
+# Local document uploads
+backend/uploads/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

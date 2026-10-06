@@ -1,21 +1,276 @@
-import { useEffect, useRef, useState } from 'react'
-import { UploadCloud, FileText, CheckCircle2, LoaderCircle, ShieldCheck, Trash2 } from 'lucide-react'
-type Doc = {id:string; filename:string; size_bytes:number; uploaded_at:string; storage:string; status:string}
-const API = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
-const MAX = 25 * 1024 * 1024
-const size = (n:number) => n < 1048576 ? `${(n/1024).toFixed(0)} KB` : `${(n/1048576).toFixed(1)} MB`
+import { useEffect, useRef, useState } from "react";
+import {
+  UploadCloud,
+  FileText,
+  CheckCircle2,
+  LoaderCircle,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
+type Doc = {
+  id: string;
+  filename: string;
+  size_bytes: number;
+  uploaded_at: string;
+  storage: string;
+  status: string;
+};
+const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const MAX = 25 * 1024 * 1024;
+const size = (n: number) =>
+  n < 1048576
+    ? `${(n / 1024).toFixed(0)} KB`
+    : `${(n / 1048576).toFixed(1)} MB`;
 export default function App() {
-  const [picked,setPicked] = useState<File[]>([]), [docs,setDocs] = useState<Doc[]>([]), [busy,setBusy] = useState(false), [error,setError] = useState(''), [message,setMessage] = useState(''), [drag,setDrag] = useState(false)
-  const input = useRef<HTMLInputElement>(null)
-  async function refresh(){try{const r=await fetch(`${API}/api/documents`);if(r.ok)setDocs(await r.json())}catch{}}
-  useEffect(()=>{void refresh()},[])
-  function add(list:FileList|File[]){setError('');setMessage('');const arr=Array.from(list);const bad=arr.find(f=>!['.pdf','.docx'].includes(f.name.slice(f.name.lastIndexOf('.')).toLowerCase()));if(bad){setError(`${bad.name}: only PDF and DOCX are supported.`);return}const big=arr.find(f=>f.size>MAX);if(big){setError(`${big.name}: maximum size is 25 MB.`);return}setPicked(old=>[...old,...arr].filter((f,i,a)=>a.findIndex(x=>x.name===f.name&&x.size===f.size&&x.lastModified===f.lastModified)===i))}
-  async function upload(){setBusy(true);setError('');setMessage('');let ok=0;const fails:string[]=[];for(const f of picked){const body=new FormData();body.append('file',f);try{const r=await fetch(`${API}/api/documents`,{method:'POST',body});if(r.ok)ok++;else{const e=await r.json().catch(()=>({detail:'Upload failed'}));fails.push(`${f.name}: ${e.detail??'Upload failed'}`)}}catch{fails.push(`${f.name}: cannot reach API at ${API}. Is backend running?`)}}setPicked([]);if(ok)setMessage(`${ok} document(s) uploaded successfully.`);if(fails.length)setError(fails.join(' '));await refresh();setBusy(false)}
-  return <div className="layout"><aside><div className="brand"><b>RI</b><span><strong>Requirement Intelligence</strong><small>ENGINEERING PLATFORM</small></span></div><p className="label">WORKSPACE</p><div className="nav active">▣ &nbsp; Source intake</div><div className="nav disabled">◇ &nbsp; Requirements <small>NEXT</small></div><div className="nav disabled">⌘ &nbsp; Traceability <small>NEXT</small></div><div className="sidefoot"><ShieldCheck size={16}/> Human-reviewed workflow</div></aside>
-  <main><header><span>Workspace / <b>Source intake</b></span><span className="env"><i/> Demo environment</span></header><div className="intro"><small>DOCUMENT MANAGEMENT</small><h1>Source intake</h1><p>Upload customer engineering specifications to start building a traceable requirements workspace.</p></div>
-  <section className="card"><div className="sectionhead"><div><h2>Upload source documents</h2><p>Original files are preserved as source artifacts.</p></div><span className="preserve"><ShieldCheck size={15}/> Source preserved</span></div>
-  <div className={`drop ${drag?'drag':''}`} onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);add(e.dataTransfer.files)}}><div className="uploadicon"><UploadCloud size={28}/></div><h3>Drag and drop your files here</h3><p>or select documents from your computer</p><button onClick={()=>input.current?.click()} disabled={busy}>Browse files</button><input ref={input} hidden type="file" multiple accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={e=>{if(e.target.files)add(e.target.files);e.target.value=''}}/><div className="formats"><span>PDF</span><span>Word DOCX</span><span>Max 25 MB each</span></div></div>
-  {picked.length>0&&<div className="picked"><div className="pickhead"><b>Ready to upload ({picked.length})</b><button className="link" onClick={()=>setPicked([])}>Clear all</button></div>{picked.map((f,i)=><div className="filerow" key={`${f.name}-${i}`}><FileText size={20}/><div><b>{f.name}</b><small>{size(f.size)}</small></div><button className="remove" onClick={()=>setPicked(old=>old.filter((_,j)=>i!==j))}><Trash2 size={16}/></button></div>)}<button className="uploadbtn" disabled={busy} onClick={upload}>{busy?<><LoaderCircle className="spin" size={17}/> Uploading…</>:<><UploadCloud size={17}/> Upload {picked.length} document(s)</>}</button></div>}
-  {error&&<div className="notice err">{error}</div>}{message&&<div className="notice ok"><CheckCircle2 size={17}/>{message}</div>}</section>
-  <section className="card"><div className="sectionhead"><div><h2>Uploaded source documents</h2><p>Files available to the next processing stage.</p></div><span className="count">{docs.length} documents</span></div>{!docs.length?<div className="empty"><FileText size={27}/><b>No documents uploaded yet</b><span>Your uploaded specifications will appear here.</span></div>:<div className="doclist">{docs.map(d=><div className="doc" key={d.id}><FileText size={20}/><div className="docinfo"><b>{d.filename}</b><small>{d.storage.startsWith('azure-blob:')?'Azure Blob Storage':'Local development storage'} · {size(d.size_bytes)}</small></div><span className="uploaded"><CheckCircle2 size={14}/> Uploaded</span></div>)}</div>}</section><footer>Requirement Intelligence Platform · Demo 0.1 <span>Upload only — extraction and AI processing come next</span></footer></main></div>
+  const [picked, setPicked] = useState<File[]>([]),
+    [docs, setDocs] = useState<Doc[]>([]),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [message, setMessage] = useState(""),
+    [drag, setDrag] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  async function refresh() {
+    try {
+      const r = await fetch(`${API}/api/documents`);
+      if (r.ok) setDocs(await r.json());
+    } catch {}
+  }
+  useEffect(() => {
+    void refresh();
+  }, []);
+  function add(list: FileList | File[]) {
+    setError("");
+    setMessage("");
+    const arr = Array.from(list);
+    const bad = arr.find(
+      (f) =>
+        ![".pdf", ".docx"].includes(
+          f.name.slice(f.name.lastIndexOf(".")).toLowerCase(),
+        ),
+    );
+    if (bad) {
+      setError(`${bad.name}: only PDF and DOCX are supported.`);
+      return;
+    }
+    const big = arr.find((f) => f.size > MAX);
+    if (big) {
+      setError(`${big.name}: maximum size is 25 MB.`);
+      return;
+    }
+    setPicked((old) =>
+      [...old, ...arr].filter(
+        (f, i, a) =>
+          a.findIndex(
+            (x) =>
+              x.name === f.name &&
+              x.size === f.size &&
+              x.lastModified === f.lastModified,
+          ) === i,
+      ),
+    );
+  }
+  async function upload() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    let ok = 0;
+    const fails: string[] = [];
+    for (const f of picked) {
+      const body = new FormData();
+      body.append("file", f);
+      try {
+        const r = await fetch(`${API}/api/documents`, { method: "POST", body });
+        if (r.ok) ok++;
+        else {
+          const e = await r.json().catch(() => ({ detail: "Upload failed" }));
+          fails.push(`${f.name}: ${e.detail ?? "Upload failed"}`);
+        }
+      } catch {
+        fails.push(
+          `${f.name}: cannot reach API at ${API}. Is backend running?`,
+        );
+      }
+    }
+    setPicked([]);
+    if (ok) setMessage(`${ok} document(s) uploaded successfully.`);
+    if (fails.length) setError(fails.join(" "));
+    await refresh();
+    setBusy(false);
+  }
+  return (
+    <div className="layout">
+      <aside>
+        <div className="brand">
+          <b>RI</b>
+          <span>
+            <strong>Requirement Intelligence</strong>
+            <small>ENGINEERING PLATFORM</small>
+          </span>
+        </div>
+        <p className="label">WORKSPACE</p>
+        <div className="nav active">▣ &nbsp; Source intake</div>
+        <div className="nav disabled">
+          ◇ &nbsp; Requirements <small>NEXT</small>
+        </div>
+        <div className="nav disabled">
+          ⌘ &nbsp; Traceability <small>NEXT</small>
+        </div>
+        <div className="sidefoot">
+          <ShieldCheck size={16} /> Human-reviewed workflow
+        </div>
+      </aside>
+      <main>
+        <header>
+          <span>
+            Workspace / <b>Source intake</b>
+          </span>
+          <span className="env">
+            <i /> Demo environment
+          </span>
+        </header>
+        <div className="intro">
+          <small>DOCUMENT MANAGEMENT</small>
+          <h1>Source intake</h1>
+          <p>
+            Upload customer engineering specifications to start building a
+            traceable requirements workspace.
+          </p>
+        </div>
+        <section className="card">
+          <div className="sectionhead">
+            <div>
+              <h2>Upload source documents</h2>
+              <p>Original files are preserved as source artifacts.</p>
+            </div>
+            <span className="preserve">
+              <ShieldCheck size={15} /> Source preserved
+            </span>
+          </div>
+          <div
+            className={`drop ${drag ? "drag" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDrag(true);
+            }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDrag(false);
+              add(e.dataTransfer.files);
+            }}
+          >
+            <div className="uploadicon">
+              <UploadCloud size={28} />
+            </div>
+            <h3>Drag and drop your files here</h3>
+            <p>or select documents from your computer</p>
+            <button onClick={() => input.current?.click()} disabled={busy}>
+              Browse files
+            </button>
+            <input
+              ref={input}
+              hidden
+              type="file"
+              multiple
+              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={(e) => {
+                if (e.target.files) add(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <div className="formats">
+              <span>PDF</span>
+              <span>Word DOCX</span>
+              <span>Max 25 MB each</span>
+            </div>
+          </div>
+          {picked.length > 0 && (
+            <div className="picked">
+              <div className="pickhead">
+                <b>Ready to upload ({picked.length})</b>
+                <button className="link" onClick={() => setPicked([])}>
+                  Clear all
+                </button>
+              </div>
+              {picked.map((f, i) => (
+                <div className="filerow" key={`${f.name}-${i}`}>
+                  <FileText size={20} />
+                  <div>
+                    <b>{f.name}</b>
+                    <small>{size(f.size)}</small>
+                  </div>
+                  <button
+                    className="remove"
+                    onClick={() =>
+                      setPicked((old) => old.filter((_, j) => i !== j))
+                    }
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+              <button className="uploadbtn" disabled={busy} onClick={upload}>
+                {busy ? (
+                  <>
+                    <LoaderCircle className="spin" size={17} /> Uploading…
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud size={17} /> Upload {picked.length} document(s)
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+          {error && <div className="notice err">{error}</div>}
+          {message && (
+            <div className="notice ok">
+              <CheckCircle2 size={17} />
+              {message}
+            </div>
+          )}
+        </section>
+        <section className="card">
+          <div className="sectionhead">
+            <div>
+              <h2>Uploaded source documents</h2>
+              <p>Files available to the next processing stage.</p>
+            </div>
+            <span className="count">{docs.length} documents</span>
+          </div>
+          {!docs.length ? (
+            <div className="empty">
+              <FileText size={27} />
+              <b>No documents uploaded yet</b>
+              <span>Your uploaded specifications will appear here.</span>
+            </div>
+          ) : (
+            <div className="doclist">
+              {docs.map((d) => (
+                <div className="doc" key={d.id}>
+                  <FileText size={20} />
+                  <div className="docinfo">
+                    <b>{d.filename}</b>
+                    <small>
+                      {d.storage.startsWith("azure-blob:")
+                        ? "Azure Blob Storage"
+                        : "Local development storage"}{" "}
+                      · {size(d.size_bytes)}
+                    </small>
+                  </div>
+                  <span className="uploaded">
+                    <CheckCircle2 size={14} /> Uploaded
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+        <footer>
+          Requirement Intelligence Platform · Demo 0.1{" "}
+          <span>Upload only — extraction and AI processing come next</span>
+        </footer>
+      </main>
+    </div>
+  );
 }
