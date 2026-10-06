@@ -362,6 +362,33 @@ header b {
   font-size: 10px;
   color: #929bab;
 }
+.doc-id {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: #66758a;
+  font-size: 10px;
+}
+.doc-id code {
+  color: #344054;
+  overflow-wrap: anywhere;
+}
+.copy-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #d4ddea;
+  border-radius: 5px;
+  padding: 4px 7px;
+  background: #fff;
+  color: #155eef;
+  font-size: 10px;
+  font-weight: 600;
+}
+.copy-id:hover {
+  background: #edf4ff;
+}
 .uploaded {
   display: flex;
   align-items: center;

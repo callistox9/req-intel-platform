@@ -3,6 +3,8 @@ import {
   UploadCloud,
   FileText,
   CheckCircle2,
+  Check,
+  Copy,
   LoaderCircle,
   ShieldCheck,
   Trash2,
@@ -27,7 +29,8 @@ export default function App() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [drag, setDrag] = useState(false);
+    [drag, setDrag] = useState(false),
+    [copiedId, setCopiedId] = useState("");
   const input = useRef<HTMLInputElement>(null);
   async function refresh() {
     try {
@@ -75,13 +78,16 @@ export default function App() {
     setMessage("");
     let ok = 0;
     const fails: string[] = [];
+    const uploadedDocs: Doc[] = [];
     for (const f of picked) {
       const body = new FormData();
       body.append("file", f);
       try {
         const r = await fetch(`${API}/api/documents`, { method: "POST", body });
-        if (r.ok) ok++;
-        else {
+        if (r.ok) {
+          uploadedDocs.push(await r.json());
+          ok++;
+        } else {
           const e = await r.json().catch(() => ({ detail: "Upload failed" }));
           fails.push(`${f.name}: ${e.detail ?? "Upload failed"}`);
         }
@@ -94,8 +100,22 @@ export default function App() {
     setPicked([]);
     if (ok) setMessage(`${ok} document(s) uploaded successfully.`);
     if (fails.length) setError(fails.join(" "));
+    setDocs((current) => [
+      ...uploadedDocs,
+      ...current.filter(
+        (doc) => !uploadedDocs.some((uploadedDoc) => uploadedDoc.id === doc.id),
+      ),
+    ]);
     await refresh();
     setBusy(false);
+  }
+  async function copyDocumentId(id: string) {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedId(id);
+    } catch {
+      setError("Could not copy the document ID. Select and copy it manually.");
+    }
   }
   return (
     <div className="layout">
@@ -257,6 +277,26 @@ export default function App() {
                         : "Local development storage"}{" "}
                       · {size(d.size_bytes)}
                     </small>
+                    <div className="doc-id">
+                      <span>Document ID</span>
+                      <code>{d.id}</code>
+                      <button
+                        className="copy-id"
+                        type="button"
+                        aria-label={`Copy document ID ${d.id}`}
+                        onClick={() => void copyDocumentId(d.id)}
+                      >
+                        {copiedId === d.id ? (
+                          <>
+                            <Check size={14} /> Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={14} /> Copy ID
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <span className="uploaded">
                     <CheckCircle2 size={14} /> Uploaded
