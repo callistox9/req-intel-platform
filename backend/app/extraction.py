@@ -62,9 +62,8 @@ def _merge_continuation_lines(lines: list[str]) -> list[str]:
         )
         starts_lowercase = bool(re.match(r"^[a-z]", trimmed))
 
-        if (
-            not re.search(r"[.!?]$", previous)
-            and (starts_requirement or starts_lowercase)
+        if not re.search(r"[.!?]$", previous) and (
+            starts_requirement or starts_lowercase
         ):
             merged[-1] = f"{previous} {line}".strip()
         else:
