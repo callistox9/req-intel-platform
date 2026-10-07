@@ -5,6 +5,13 @@ Upload PDF or DOCX files, then extract document text and identify preliminary re
 ## Run locally
 Requires Python 3.11+ and Node.js 20+.
 
+Runtime configuration is read from the repository-root `.env` file by both
+the backend and Vite frontend. The file is ignored by Git. Set
+`AZURE_STORAGE_CONNECTION_STRING` there to enable Azure Blob Storage; leave
+it empty to use local development storage. The shared
+`VITE_MAX_UPLOAD_SIZE_MB` setting controls the upload limit in both frontend
+and backend.
+
 ### Backend
 ```bash
 cd backend
@@ -25,10 +32,10 @@ npm run dev
 Open http://localhost:5173.
 
 ## Azure Blob Storage
-Set these variables in the backend environment (never in the frontend):
-- `AZURE_STORAGE_CONNECTION_STRING`
-- `AZURE_STORAGE_CONTAINER` (defaults to `requirement-source-files`)
-- `FRONTEND_ORIGINS` (defaults to `http://localhost:5173`)
+Configure `AZURE_STORAGE_CONNECTION_STRING` and `AZURE_STORAGE_CONTAINER` in
+the repository-root `.env` file (never put storage credentials in frontend
+variables). The checked-out local `.env` starts with an empty connection
+string, so the backend uses local storage until configured.
 
 For production, prefer managed identity / Microsoft Entra ID, add authentication, malware scanning, and persist document metadata in Azure SQL. The current metadata list is in-memory and resets on API restart.
 

@@ -17,8 +17,9 @@ type Doc = {
   storage: string;
   status: string;
 };
-const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-const MAX = 25 * 1024 * 1024;
+const API = import.meta.env.VITE_API_BASE_URL;
+const MAX =
+  Number(import.meta.env.VITE_MAX_UPLOAD_SIZE_MB) * 1024 * 1024;
 const size = (n: number) =>
   n < 1048576
     ? `${(n / 1024).toFixed(0)} KB`
@@ -57,7 +58,9 @@ export default function App() {
     }
     const big = arr.find((f) => f.size > MAX);
     if (big) {
-      setError(`${big.name}: maximum size is 25 MB.`);
+      setError(
+        `${big.name}: maximum size is ${import.meta.env.VITE_MAX_UPLOAD_SIZE_MB} MB.`,
+      );
       return;
     }
     setPicked((old) =>

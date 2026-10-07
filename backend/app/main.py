@@ -2,19 +2,25 @@ import os, re, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from app.extraction import analyze_document
 
 ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT.parent / ".env")
+
 UPLOADS = ROOT / "uploads"
 UPLOADS.mkdir(parents=True, exist_ok=True)
-MAX_BYTES = 25 * 1024 * 1024
+MAX_UPLOAD_SIZE_MB = int(os.environ["VITE_MAX_UPLOAD_SIZE_MB"])
+if MAX_UPLOAD_SIZE_MB <= 0:
+    raise ValueError("VITE_MAX_UPLOAD_SIZE_MB must be a positive integer.")
+MAX_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 app = FastAPI(title="Requirement Intelligence Platform API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(","),
+    allow_origins=os.environ["FRONTEND_ORIGINS"].split(","),
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -30,8 +36,8 @@ def clean_name(value: str) -> str:
 
 async def store(name: str, data: bytes, mime: str) -> str:
     connection = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-    container_name = os.getenv("AZURE_STORAGE_CONTAINER", "requirement-source-files")
     if connection:
+        container_name = os.environ["AZURE_STORAGE_CONTAINER"]
         from azure.storage.blob import BlobServiceClient, ContentSettings
 
         try:
@@ -83,7 +89,7 @@ async def upload_document(file: UploadFile = File(...)):
     if not data:
         raise HTTPException(400, "The uploaded file is empty.")
     if len(data) > MAX_BYTES:
-        raise HTTPException(413, "Maximum file size is 25 MB.")
+        raise HTTPException(413, f"Maximum file size is {MAX_UPLOAD_SIZE_MB} MB.")
     if ext == ".pdf" and not data.startswith(b"%PDF-"):
         raise HTTPException(415, "The file does not appear to be a valid PDF.")
     if ext == ".docx" and not data.startswith(b"PK"):
